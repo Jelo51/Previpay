@@ -283,33 +283,34 @@ const CatalogScreen = ({ navigation }) => {
         </View>
 
         {/* Filtres par catégorie */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryScrollContainer}
+        
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  style={styles.categoryScrollContainer}
+>
+  <View style={styles.categoryContainer}>
+    {[...new Set(categories)].map((category) => (
+      <TouchableOpacity
+        key={category}
+        style={[
+          styles.categoryButton,
+          selectedCategory === category && styles.categoryButtonActive,
+        ]}
+        onPress={() => setSelectedCategory(category)}
+      >
+        <Text
+          style={[
+            styles.categoryButtonText,
+            selectedCategory === category && styles.categoryButtonTextActive,
+          ]}
         >
-          <View style={styles.categoryContainer}>
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === category && styles.categoryButtonActive,
-                ]}
-                onPress={() => setSelectedCategory(category)}
-              >
-                <Text
-                  style={[
-                    styles.categoryButtonText,
-                    selectedCategory === category && styles.categoryButtonTextActive,
-                  ]}
-                >
-                  {getCategoryDisplayName(category)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+          {getCategoryDisplayName(category)}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+</ScrollView>
       </View>
 
       {/* Liste des entreprises */}

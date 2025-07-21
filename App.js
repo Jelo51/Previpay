@@ -6,15 +6,15 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { I18nextProvider } from 'react-i18next';
 import i18n from './src/services/i18n';
-import { useTheme } from './src/context/ThemeContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { NotificationProvider } from './src/context/NotificationContext';
-import { DebitProvider } from './src/context/DebitContext.js';
+import { DebitProvider } from './src/context/DebitContext';
 import { initializeDatabase } from './src/services/database';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
-import CalendarScreen from './src/screens/CalendarScreen.js';
+import CalendarScreen from './src/screens/CalendarScreen';
 import AddDebitScreen from './src/screens/AddDebitScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -22,27 +22,29 @@ import AuthScreen from './src/screens/AuthScreen';
 import DebitDetailsScreen from './src/screens/DebitDetailsScreen';
 import StatisticsScreen from './src/screens/StatisticsScreen';
 
+// Créer les navigateurs
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // Stack Navigator pour l'écran principal
 function HomeStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen 
         name="Dashboard" 
         component={HomeScreen} 
-        options={{ title: 'PréviPay' }}
       />
       <Stack.Screen 
         name="DebitDetails" 
         component={DebitDetailsScreen}
-        options={{ title: 'Détails du prélèvement' }}
       />
       <Stack.Screen 
         name="Statistics" 
         component={StatisticsScreen}
-        options={{ title: 'Statistiques' }}
       />
     </Stack.Navigator>
   );
@@ -51,16 +53,18 @@ function HomeStack() {
 // Stack Navigator pour le calendrier
 function CalendarStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen 
         name="CalendarView" 
         component={CalendarScreen} 
-        options={{ title: 'Calendrier' }}
       />
       <Stack.Screen 
         name="DebitDetails" 
         component={DebitDetailsScreen}
-        options={{ title: 'Détails du prélèvement' }}
       />
     </Stack.Navigator>
   );
@@ -69,16 +73,18 @@ function CalendarStack() {
 // Stack Navigator pour l'ajout
 function AddStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
       <Stack.Screen 
         name="AddDebit" 
         component={AddDebitScreen} 
-        options={{ title: 'Ajouter un prélèvement' }}
       />
       <Stack.Screen 
         name="Catalog" 
         component={CatalogScreen}
-        options={{ title: 'Catalogue' }}
       />
     </Stack.Navigator>
   );
@@ -117,6 +123,9 @@ function MainTabs() {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
         },
+        tabBarLabelStyle: {
+          fontWeight: 'normal', // Valeur statique au lieu de theme.fonts.medium
+        },
         headerShown: false,
       })}
     >
@@ -144,7 +153,6 @@ function MainTabs() {
   );
 }
 
-// Composant principal de l'app
 function AppContent() {
   const { user, loading } = useAuth();
   const { theme } = useTheme();
@@ -154,40 +162,29 @@ function AppContent() {
   }, []);
 
   if (loading) {
-    return null; // ou un écran de chargement
+    return null; 
   }
 
   return (
-    <NavigationContainer
-      theme={{
-        dark: theme.isDark,
-        colors: {
-          primary: theme.colors.primary,
-          background: theme.colors.background,
-          card: theme.colors.surface,
-          text: theme.colors.text,
-          border: theme.colors.border,
-          notification: theme.colors.primary,
-        },
-      }}
-    >
+    <NavigationContainer>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       {user ? <MainTabs /> : <AuthScreen />}
     </NavigationContainer>
   );
 }
 
-// App principal avec tous les providers
 export default function App() {
   return (
-    <I18nextProvider i18n={i18n}>
-      <AuthProvider>
-        <NotificationProvider>
-          <DebitProvider>
-            <AppContent />
-          </DebitProvider>
-        </NotificationProvider>
-      </AuthProvider>
-    </I18nextProvider>
+    <ThemeProvider>
+      <I18nextProvider i18n={i18n}>
+        <AuthProvider>
+          <NotificationProvider>
+            <DebitProvider>
+              <AppContent />
+            </DebitProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </I18nextProvider>
+    </ThemeProvider>
   );
 }
