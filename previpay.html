@@ -1125,7 +1125,6 @@
             const calendar = document.getElementById('calendar');
             calendar.innerHTML = '';
             
-            // Jours de la semaine
             const daysOfWeek = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             daysOfWeek.forEach(day => {
                 const dayHeader = document.createElement('div');
@@ -1136,7 +1135,6 @@
                 calendar.appendChild(dayHeader);
             });
             
-            // Jours du mois
             const today = new Date();
             const year = today.getFullYear();
             const month = today.getMonth();

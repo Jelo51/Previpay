@@ -1,128 +1,215 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import * as Crypto from 'expo-crypto';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { Platform } from 'react-native';
+
+// Import conditionnel de SecureStore pour mobile uniquement
+let SecureStore = null;
+if (Platform.OS !== 'web') {
+  try {
+    SecureStore = require('expo-secure-store');
+  } catch (e) {
+    console.log('SecureStore non disponible');
+  }
+}
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const authReducer = (state, action) => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_USER':
+      return { ...state, user: action.payload, loading: false };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+    case 'LOGOUT':
+      return { ...state, user: null, loading: false };
+    default:
+      return state;
+  }
+};
 
+export const AuthProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(authReducer, {
+    user: null,
+    loading: true,
+    error: null,
+  });
+
+  // Vérifier si un utilisateur est connecté au démarrage
   useEffect(() => {
-    checkAuthStatus();
+    checkAuthState();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const checkAuthState = async () => {
     try {
-      const userData = await SecureStore.getItemAsync('userData');
+      console.log('Vérification auth sur:', Platform.OS);
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      let userData = null;
+
+      if (Platform.OS === 'web') {
+        // Web uniquement - localStorage
+        if (typeof localStorage !== 'undefined') {
+          userData = localStorage.getItem('user');
+          if (userData) {
+            userData = JSON.parse(userData);
+          }
+        }
+      } else {
+        // Mobile uniquement - SecureStore
+        if (SecureStore) {
+          try {
+            const userString = await SecureStore.getItemAsync('user');
+            if (userString) {
+              userData = JSON.parse(userString);
+            }
+          } catch (error) {
+            console.log('Pas de données utilisateur sauvegardées');
+          }
+        }
+      }
+
       if (userData) {
-        setUser(JSON.parse(userData));
+        console.log('Utilisateur trouvé:', userData.email);
+        dispatch({ type: 'SET_USER', payload: userData });
+      } else {
+        console.log('Aucun utilisateur connecté');
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     } catch (error) {
-      console.error('Erreur lors de la vérification auth:', error);
-    } finally {
-      setLoading(false);
+      console.error('Erreur checkAuthState:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
     }
   };
 
   const login = async (email, password) => {
     try {
-      setLoading(true);
-      
-      // Simulation d'authentification
-      // Dans un vrai projet, ici vous feriez un appel API
-      const hashedPassword = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        password
-      );
+      console.log('Connexion:', email, 'sur', Platform.OS);
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
 
-      // Vérification simplifiée (remplacer par une vraie authentification)
-      if (email && password.length >= 6) {
-        const userData = {
-          id: await Crypto.digestStringAsync(
-            Crypto.CryptoDigestAlgorithm.SHA256,
-            email
-          ),
-          email,
-          name: email.split('@')[0],
-          createdAt: new Date().toISOString(),
-        };
+      // Simulation d'API (1 seconde de délai)
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-        await SecureStore.setItemAsync('userData', JSON.stringify(userData));
-        setUser(userData);
-        return { success: true };
-      } else {
-        return { success: false, error: 'Identifiants invalides' };
+      // Validation simple
+      if (!email || !password) {
+        throw new Error('Email et mot de passe requis');
       }
+
+      if (password.length < 4) {
+        throw new Error('Mot de passe trop court (min 4 caractères)');
+      }
+
+      // Créer l'utilisateur
+      const userData = {
+        id: 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+        email: email.toLowerCase().trim(),
+        name: email.split('@')[0],
+        createdAt: new Date().toISOString(),
+      };
+
+      // Sauvegarder selon la plateforme
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      } else {
+        // Mobile - SecureStore
+        if (SecureStore) {
+          await SecureStore.setItemAsync('user', JSON.stringify(userData));
+        }
+      }
+
+      console.log('Connexion réussie:', userData.email);
+      dispatch({ type: 'SET_USER', payload: userData });
+      return { success: true, user: userData };
+
     } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
-      return { success: false, error: 'Erreur de connexion' };
-    } finally {
-      setLoading(false);
+      console.error('Erreur login:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      return { success: false, error: error.message };
     }
   };
 
   const register = async (email, password, name) => {
     try {
-      setLoading(true);
+      console.log('Inscription:', email, 'sur', Platform.OS);
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
 
-      // Validation basique
-      if (!email || !password || password.length < 6) {
-        return { success: false, error: 'Données invalides' };
+      // Simulation d'API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Validation
+      if (!email || !password) {
+        throw new Error('Email et mot de passe requis');
       }
 
-      // Simulation d'inscription
+      if (password.length < 4) {
+        throw new Error('Mot de passe trop court (min 4 caractères)');
+      }
+
+      // Créer l'utilisateur
       const userData = {
-        id: await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.SHA256,
-          email
-        ),
-        email,
+        id: 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+        email: email.toLowerCase().trim(),
         name: name || email.split('@')[0],
         createdAt: new Date().toISOString(),
       };
 
-      await SecureStore.setItemAsync('userData', JSON.stringify(userData));
-      setUser(userData);
-      return { success: true };
+      // Sauvegarder selon la plateforme
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      } else {
+        // Mobile - SecureStore
+        if (SecureStore) {
+          await SecureStore.setItemAsync('user', JSON.stringify(userData));
+        }
+      }
+
+      console.log('Inscription réussie:', userData.email);
+      dispatch({ type: 'SET_USER', payload: userData });
+      return { success: true, user: userData };
+
     } catch (error) {
-      console.error('Erreur lors de l\'inscription:', error);
-      return { success: false, error: 'Erreur d\'inscription' };
-    } finally {
-      setLoading(false);
+      console.error('Erreur register:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      return { success: false, error: error.message };
     }
   };
 
   const logout = async () => {
     try {
-      await SecureStore.deleteItemAsync('userData');
-      setUser(null);
-    } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
-    }
-  };
+      console.log('Déconnexion sur', Platform.OS);
+      
+      // Supprimer selon la plateforme
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+      } else {
+        // Mobile - SecureStore
+        if (SecureStore) {
+          await SecureStore.deleteItemAsync('user');
+        }
+      }
 
-  const updateProfile = async (updates) => {
-    try {
-      if (!user) return { success: false, error: 'Utilisateur non connecté' };
-
-      const updatedUser = { ...user, ...updates };
-      await SecureStore.setItemAsync('userData', JSON.stringify(updatedUser));
-      setUser(updatedUser);
-      return { success: true };
+      dispatch({ type: 'LOGOUT' });
+      console.log('Déconnexion réussie');
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil:', error);
-      return { success: false, error: 'Erreur de mise à jour' };
+      console.error('Erreur logout:', error);
     }
   };
 
   const value = {
-    user,
-    loading,
+    user: state.user,
+    loading: state.loading,
+    error: state.error,
     login,
     register,
     logout,
-    updateProfile,
   };
 
   return (

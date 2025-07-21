@@ -8,15 +8,24 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useDebits } from '../context/DebitContext';
 import { useNotifications } from '../context/NotificationContext';
 import { catalogService } from '../services/catalogService';
+
+// Import conditionnel du DateTimePicker
+let DateTimePicker = null;
+if (Platform.OS !== 'web') {
+  try {
+    DateTimePicker = require('@react-native-community/datetimepicker').default;
+  } catch (e) {
+    console.log('DateTimePicker non disponible sur cette plateforme');
+  }
+}
 
 const AddDebitScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -60,7 +69,8 @@ const AddDebitScreen = ({ navigation, route }) => {
   const loadCategories = async () => {
     try {
       const categoriesList = await catalogService.getCategories();
-      setCategories(['Autre', ...categoriesList]);
+      const uniqueCategories = ['Autre', ...new Set(categoriesList.filter(cat => cat !== 'Autre'))];
+      setCategories(uniqueCategories);
     } catch (error) {
       console.error('Erreur lors du chargement des catégories:', error);
     }
@@ -81,6 +91,28 @@ const AddDebitScreen = ({ navigation, route }) => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  // Fonction pour gérer le clic sur la date
+  const handleDatePress = () => {
+    if (Platform.OS === 'web') {
+      // Sur web, créer un input HTML5 date
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.value = formData.nextPaymentDate.toISOString().split('T')[0];
+      input.min = new Date().toISOString().split('T')[0]; // Date minimum = aujourd'hui
+      
+      input.onchange = (event) => {
+        const selectedDate = new Date(event.target.value);
+        handleInputChange('nextPaymentDate', selectedDate);
+      };
+      
+      // Déclencher le sélecteur
+      input.click();
+    } else {
+      // Sur mobile, utiliser le DateTimePicker natif
+      setShowDatePicker(true);
+    }
   };
 
   const handleDateChange = (event, selectedDate) => {
@@ -355,17 +387,41 @@ const AddDebitScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('debits.nextPaymentDate')}</Text>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={styles.pickerButtonText}>
-                {formData.nextPaymentDate.toLocaleDateString('fr-FR')}
-              </Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+  <Text style={styles.label}>{t('debits.nextPaymentDate')}</Text>
+  {Platform.OS === 'web' ? (
+    // Input HTML5 natif pour le web
+    <View style={styles.pickerButton}>
+      <input
+        type="date"
+        value={formData.nextPaymentDate.toISOString().split('T')[0]}
+        onChange={(e) => {
+          const selectedDate = new Date(e.target.value);
+          handleInputChange('nextPaymentDate', selectedDate);
+        }}
+        min={new Date().toISOString().split('T')[0]}
+        style={{
+          border: 'none',
+          background: 'transparent',
+          fontSize: '16px',
+          color: theme.colors.text,
+          width: '100%',
+          outline: 'none',
+        }}
+      />
+    </View>
+  ) : (
+    // TouchableOpacity pour mobile
+    <TouchableOpacity
+      style={styles.pickerButton}
+      onPress={() => setShowDatePicker(true)}
+    >
+      <Text style={styles.pickerButtonText}>
+        {formData.nextPaymentDate.toLocaleDateString('fr-FR')}
+      </Text>
+      <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+    </TouchableOpacity>
+  )}
+</View>
         </View>
 
         {/* Description optionnelle */}
@@ -401,8 +457,8 @@ const AddDebitScreen = ({ navigation, route }) => {
         </Text>
       </TouchableOpacity>
 
-      {/* Date Picker */}
-      {showDatePicker && (
+      {/* Date Picker - Seulement sur mobile */}
+      {showDatePicker && Platform.OS !== 'web' && DateTimePicker && (
         <DateTimePicker
           value={formData.nextPaymentDate}
           mode="date"
@@ -423,7 +479,7 @@ const AddDebitScreen = ({ navigation, route }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Choisir une catégorie</Text>
             <ScrollView>
-              {categories.map((category) => (
+              {[...new Set(categories)].map((category) => (
                 <TouchableOpacity
                   key={category}
                   style={styles.optionButton}

@@ -1,56 +1,27 @@
 {
   "expo": {
-    "name": "PréviPay",
+    "name": "PreviPay",
     "slug": "previpay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.previpay.app",
-      "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Cette app utilise les notifications pour vous rappeler vos prélèvements bancaires à venir."
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#007AFF"
-      },
-      "package": "com.previpay.app",
-      "permissions": [
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.WAKE_LOCK"
-      ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#007AFF"
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#007AFF"
-        }
-      ],
-      "expo-secure-store",
       "expo-sqlite",
-      "expo-localization"
+      "expo-secure-store"
     ]
   }
 }

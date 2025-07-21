@@ -22,6 +22,44 @@ const lightTheme = {
     expense: '#FF3B30',
     shadow: '#000000',
   },
+  // Propriétés de police complètes
+  fonts: {
+    light: '300',
+    regular: 'normal',
+    medium: '500',
+    semiBold: '600',
+    bold: 'bold',
+  },
+  // Propriétés directes pour compatibilité
+  light: '300',
+  regular: 'normal',
+  medium: '500',
+  semiBold: '600',
+  bold: 'bold',
+  // Tailles de police
+  fontSizes: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    xxl: 24,
+  },
+  // Espacements
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  },
+  // Rayons de bordure
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+  },
 };
 
 const darkTheme = {
@@ -40,6 +78,44 @@ const darkTheme = {
     income: '#32D74B',
     expense: '#FF453A',
     shadow: '#FFFFFF',
+  },
+  // Propriétés de police complètes
+  fonts: {
+    light: '300',
+    regular: 'normal',
+    medium: '500',
+    semiBold: '600',
+    bold: 'bold',
+  },
+  // Propriétés directes pour compatibilité
+  light: '300',
+  regular: 'normal',
+  medium: '500',
+  semiBold: '600',
+  bold: 'bold',
+  // Tailles de police
+  fontSizes: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    xxl: 24,
+  },
+  // Espacements
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  },
+  // Rayons de bordure
+  borderRadius: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
   },
 };
 
