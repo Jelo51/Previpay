@@ -49,8 +49,9 @@ const CalendarScreen = ({ navigation }) => {
     const marked = {};
     
     debits.forEach(debit => {
-      if (debit.status === 'active') {
-        const date = debit.nextPaymentDate;
+      if (debit.status === 'active' && !debit.is_paused) {
+        const date = debit.next_payment_date || debit.nextPaymentDate;
+        
         marked[date] = {
           marked: true,
           dotColor: theme.colors.primary,
@@ -77,11 +78,22 @@ const CalendarScreen = ({ navigation }) => {
   };
 
   const updateSelectedDebits = (date) => {
-    const debitsForDate = debits.filter(debit => 
-      debit.nextPaymentDate === date && debit.status === 'active'
-    );
+    const debitsForDate = debits.filter(debit => {
+      const debitDate = debit.next_payment_date || debit.nextPaymentDate;
+      const matches = debitDate === date && debit.status === 'active' && !debit.is_paused;
+      
+      return matches;
+    });
+    
     setSelectedDebits(debitsForDate);
   };
+
+  // Fonction pour mapper les données
+  const mapDebitForDisplay = (debit) => ({
+    ...debit,
+    companyName: debit.company_name || debit.companyName,
+    nextPaymentDate: debit.next_payment_date || debit.nextPaymentDate,
+  });
 
   const onDateSelect = (day) => {
     setSelectedDate(day.dateString);
@@ -100,9 +112,14 @@ const CalendarScreen = ({ navigation }) => {
 
   const getTotalForDate = (date) => {
     return debits
-      .filter(debit => debit.nextPaymentDate === date && debit.status === 'active')
+      .filter(debit => {
+        const debitDate = debit.next_payment_date || debit.nextPaymentDate;
+        return debitDate === date && debit.status === 'active' && !debit.is_paused;
+      })
       .reduce((sum, debit) => sum + debit.amount, 0);
   };
+
+  const mappedSelectedDebits = selectedDebits.map(mapDebitForDisplay);
 
   const styles = StyleSheet.create({
     container: {
@@ -230,8 +247,8 @@ const CalendarScreen = ({ navigation }) => {
 
       {/* Liste des prélèvements pour la date sélectionnée */}
       <ScrollView style={styles.debitsContainer}>
-        {selectedDebits.length > 0 ? (
-          selectedDebits.map((debit) => (
+        {mappedSelectedDebits.length > 0 ? (
+          mappedSelectedDebits.map((debit) => (
             <DebitCard
               key={debit.id}
               debit={debit}
@@ -248,7 +265,7 @@ const CalendarScreen = ({ navigation }) => {
               style={styles.emptyIcon}
             />
             <Text style={styles.emptyText}>
-              {t('calendar.noDebitsToday')}
+              Aucun prélèvement aujourd'hui
             </Text>
           </View>
         )}

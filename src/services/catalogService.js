@@ -1,119 +1,139 @@
-import { executeQuery, executeSelect } from './database';
+import { companyService } from './database';
 
 export const catalogService = {
   // Obtenir toutes les entreprises du catalogue
   async getAllCompanies() {
-    const query = 'SELECT * FROM companies ORDER BY category, name';
-    const results = await executeSelect(query);
-    
-    return results.map(row => ({
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      logoUrl: row.logo_url,
-      website: row.website,
-      isPopular: Boolean(row.is_popular)
-    }));
+    try {
+      const results = await companyService.getAllCompanies();
+      
+      return results.map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        logoUrl: row.logo_url || null,
+        website: row.website || null,
+        isPopular: Boolean(row.is_popular)
+      }));
+    } catch (error) {
+      console.error('Erreur getAllCompanies:', error);
+      return this.getFallbackCompanies();
+    }
+  },
+
+  // Obtenir les entreprises du catalogue (alias pour compatibilité)
+  async getCompanies() {
+    return await this.getAllCompanies();
   },
 
   // Obtenir les entreprises par catégorie
   async getCompaniesByCategory(category) {
-    const query = 'SELECT * FROM companies WHERE category = ? ORDER BY name';
-    const results = await executeSelect(query, [category]);
-    
-    return results.map(row => ({
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      logoUrl: row.logo_url,
-      website: row.website,
-      isPopular: Boolean(row.is_popular)
-    }));
+    try {
+      const allCompanies = await companyService.getAllCompanies();
+      const filtered = allCompanies.filter(company => company.category === category);
+      
+      return filtered.map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        logoUrl: row.logo_url || null,
+        website: row.website || null,
+        isPopular: Boolean(row.is_popular)
+      }));
+    } catch (error) {
+      console.error('Erreur getCompaniesByCategory:', error);
+      return [];
+    }
   },
 
   // Obtenir les entreprises populaires
   async getPopularCompanies() {
-    const query = 'SELECT * FROM companies WHERE is_popular = 1 ORDER BY category, name';
-    const results = await executeSelect(query);
-    
-    return results.map(row => ({
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      logoUrl: row.logo_url,
-      website: row.website,
-      isPopular: Boolean(row.is_popular)
-    }));
+    try {
+      const results = await companyService.getPopularCompanies();
+      
+      return results.map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        logoUrl: row.logo_url || null,
+        website: row.website || null,
+        isPopular: Boolean(row.is_popular)
+      }));
+    } catch (error) {
+      console.error('Erreur getPopularCompanies:', error);
+      return this.getFallbackCompanies().filter(c => c.isPopular);
+    }
   },
 
   // Rechercher des entreprises
   async searchCompanies(searchTerm) {
-    const query = `
-      SELECT * FROM companies 
-      WHERE name LIKE ? OR category LIKE ?
-      ORDER BY is_popular DESC, name
-    `;
-    const searchPattern = `%${searchTerm}%`;
-    const results = await executeSelect(query, [searchPattern, searchPattern]);
-    
-    return results.map(row => ({
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      logoUrl: row.logo_url,
-      website: row.website,
-      isPopular: Boolean(row.is_popular)
-    }));
+    try {
+      const allCompanies = await companyService.getAllCompanies();
+      const searchPattern = searchTerm.toLowerCase();
+      
+      const filtered = allCompanies.filter(company =>
+        company.name.toLowerCase().includes(searchPattern) ||
+        company.category.toLowerCase().includes(searchPattern)
+      );
+      
+      return filtered.map(row => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        logoUrl: row.logo_url || null,
+        website: row.website || null,
+        isPopular: Boolean(row.is_popular)
+      }));
+    } catch (error) {
+      console.error('Erreur searchCompanies:', error);
+      return [];
+    }
   },
 
   // Obtenir toutes les catégories
   async getCategories() {
-    const query = 'SELECT DISTINCT category FROM companies ORDER BY category';
-    const results = await executeSelect(query);
-    
-    return results.map(row => row.category);
+    try {
+      return await companyService.getCategories();
+    } catch (error) {
+      console.error('Erreur getCategories:', error);
+      return ['Mobile', 'Divertissement', 'Banque', 'Assurance', 'Énergie', 'Transport', 'Crédit', 'Autre'];
+    }
   },
 
   // Obtenir les entreprises groupées par catégorie
   async getCompaniesGroupedByCategory() {
-    const companies = await this.getAllCompanies();
-    
-    return companies.reduce((acc, company) => {
-      const category = company.category;
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(company);
-      return acc;
-    }, {});
+    try {
+      const companies = await this.getAllCompanies();
+      
+      return companies.reduce((acc, company) => {
+        const category = company.category;
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+        acc[category].push(company);
+        return acc;
+      }, {});
+    } catch (error) {
+      console.error('Erreur getCompaniesGroupedByCategory:', error);
+      return {};
+    }
   },
 
-  // Ajouter une nouvelle entreprise
-  async addCompany(companyData) {
-    const query = `
-      INSERT INTO companies (id, name, category, logo_url, website, is_popular)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-    
-    const id = companyData.id || companyData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    
-    await executeQuery(query, [
-      id,
-      companyData.name,
-      companyData.category,
-      companyData.logoUrl || null,
-      companyData.website || null,
-      companyData.isPopular ? 1 : 0
-    ]);
-    
-    return {
-      id,
-      name: companyData.name,
-      category: companyData.category,
-      logoUrl: companyData.logoUrl,
-      website: companyData.website,
-      isPopular: Boolean(companyData.isPopular)
-    };
+  // Données de fallback en cas de problème
+  getFallbackCompanies() {
+    return [
+      { id: 'orange', name: 'Orange', category: 'Mobile', isPopular: true },
+      { id: 'sfr', name: 'SFR', category: 'Mobile', isPopular: true },
+      { id: 'free', name: 'Free', category: 'Mobile', isPopular: true },
+      { id: 'bouygues', name: 'Bouygues Telecom', category: 'Mobile', isPopular: true },
+      { id: 'netflix', name: 'Netflix', category: 'Divertissement', isPopular: true },
+      { id: 'spotify', name: 'Spotify', category: 'Divertissement', isPopular: true },
+      { id: 'disney-plus', name: 'Disney+', category: 'Divertissement', isPopular: true },
+      { id: 'bnp-paribas', name: 'BNP Paribas', category: 'Banque', isPopular: true },
+      { id: 'credit-agricole', name: 'Crédit Agricole', category: 'Banque', isPopular: true },
+      { id: 'axa', name: 'AXA', category: 'Assurance', isPopular: true },
+      { id: 'edf', name: 'EDF', category: 'Énergie', isPopular: true },
+      { id: 'sncf', name: 'SNCF Connect', category: 'Transport', isPopular: true }
+    ];
   },
 
   // Suggestions d'entreprises basées sur la catégorie
