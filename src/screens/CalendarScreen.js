@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useDebits } from '../context/DebitContext';
 import DebitCard from '../components/DebitCard';
@@ -32,7 +31,6 @@ LocaleConfig.locales['fr'] = {
 LocaleConfig.defaultLocale = 'fr';
 
 const CalendarScreen = ({ navigation }) => {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const { debits, getMonthDebits } = useDebits();
   
@@ -45,18 +43,94 @@ const CalendarScreen = ({ navigation }) => {
     updateSelectedDebits(selectedDate);
   }, [debits, selectedDate]);
 
+  // Fonction pour calculer les dates récurrentes
+  const getRecurringDates = (debit) => {
+    const dates = [];
+    const startDate = new Date(debit.next_payment_date || debit.nextPaymentDate);
+    const today = new Date();
+    
+    // Calculer les dates pour les 12 prochains mois
+    const endDate = new Date(today);
+    endDate.setMonth(endDate.getMonth() + 12);
+    
+    let currentDate = new Date(startDate);
+    
+    // Pour les prélèvements ponctuels, on n'affiche que la date unique
+    if (debit.frequency === 'once') {
+      if (currentDate >= today && currentDate <= endDate) {
+        dates.push(formatDateForCalendar(currentDate));
+      }
+      return dates;
+    }
+    
+    // Générer les dates récurrentes
+    while (currentDate <= endDate) {
+      if (currentDate >= today) {
+        dates.push(formatDateForCalendar(currentDate));
+      }
+      
+      // Calculer la prochaine date selon la fréquence
+      const nextDate = new Date(currentDate);
+      
+      switch (debit.frequency) {
+        case 'weekly':
+          nextDate.setDate(nextDate.getDate() + 7);
+          break;
+        case 'biweekly':
+          nextDate.setDate(nextDate.getDate() + 14);
+          break;
+        case 'monthly':
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          break;
+        case 'quarterly':
+          nextDate.setMonth(nextDate.getMonth() + 3);
+          break;
+        case 'biannual':
+          nextDate.setMonth(nextDate.getMonth() + 6);
+          break;
+        case 'annual':
+          nextDate.setFullYear(nextDate.getFullYear() + 1);
+          break;
+        default:
+          // Si fréquence inconnue, sortir de la boucle
+          break;
+      }
+      
+      currentDate = nextDate;
+      
+      // Sécurité pour éviter les boucles infinies
+      if (dates.length > 50) break;
+    }
+    
+    return dates;
+  };
+
+  // Fonction helper pour formater les dates
+  const formatDateForCalendar = (date) => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const updateMarkedDates = () => {
     const marked = {};
     
     debits.forEach(debit => {
-      if (debit.status === 'active' && !debit.is_paused) {
-        const date = debit.next_payment_date || debit.nextPaymentDate;
+      // ✅ CORRECTION: Afficher TOUS les prélèvements actifs (même en pause)
+      if (debit.status === 'active') {
+        const dates = getRecurringDates(debit);
         
-        marked[date] = {
-          marked: true,
-          dotColor: theme.colors.primary,
-          selectedColor: theme.colors.primary,
-        };
+        dates.forEach(date => {
+          // Couleur différente pour les prélèvements en pause
+          const dotColor = debit.is_paused ? theme.colors.warning : theme.colors.primary;
+          
+          marked[date] = {
+            marked: true,
+            dotColor: dotColor,
+            selectedColor: theme.colors.primary,
+          };
+        });
       }
     });
     
@@ -79,10 +153,14 @@ const CalendarScreen = ({ navigation }) => {
 
   const updateSelectedDebits = (date) => {
     const debitsForDate = debits.filter(debit => {
-      const debitDate = debit.next_payment_date || debit.nextPaymentDate;
-      const matches = debitDate === date && debit.status === 'active' && !debit.is_paused;
+      // ✅ CORRECTION: Inclure TOUS les prélèvements actifs (même en pause)
+      if (debit.status !== 'active') return false;
       
-      return matches;
+      // Obtenir toutes les dates récurrentes pour ce prélèvement
+      const recurringDates = getRecurringDates(debit);
+      
+      // Vérifier si la date sélectionnée correspond à une des dates récurrentes
+      return recurringDates.includes(date);
     });
     
     setSelectedDebits(debitsForDate);
@@ -113,8 +191,11 @@ const CalendarScreen = ({ navigation }) => {
   const getTotalForDate = (date) => {
     return debits
       .filter(debit => {
-        const debitDate = debit.next_payment_date || debit.nextPaymentDate;
-        return debitDate === date && debit.status === 'active' && !debit.is_paused;
+        // ✅ CORRECTION: Compter seulement les prélèvements actifs ET non en pause pour le total
+        if (debit.status !== 'active' || debit.is_paused) return false;
+        
+        const recurringDates = getRecurringDates(debit);
+        return recurringDates.includes(date);
       })
       .reduce((sum, debit) => sum + debit.amount, 0);
   };
@@ -198,6 +279,32 @@ const CalendarScreen = ({ navigation }) => {
       shadowOpacity: 0.3,
       shadowRadius: 6,
     },
+    legendContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: theme.colors.surface,
+      marginHorizontal: 16,
+      marginTop: 8,
+      borderRadius: 8,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 12,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginRight: 6,
+    },
+    legendText: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+    },
   });
 
   return (
@@ -231,13 +338,25 @@ const CalendarScreen = ({ navigation }) => {
         }}
       />
 
+      {/* Légende des couleurs */}
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+          <Text style={styles.legendText}>Actif</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: theme.colors.warning }]} />
+          <Text style={styles.legendText}>En pause</Text>
+        </View>
+      </View>
+
       {/* Date sélectionnée et prélèvements */}
       <View style={styles.selectedDateContainer}>
         <View style={styles.selectedDateHeader}>
           <Text style={styles.selectedDateText}>
             {formatSelectedDate(selectedDate)}
           </Text>
-          {selectedDebits.length > 0 && (
+          {selectedDebits.filter(d => !d.is_paused).length > 0 && (
             <Text style={styles.totalAmount}>
               {getTotalForDate(selectedDate).toFixed(2)}€
             </Text>
@@ -265,7 +384,7 @@ const CalendarScreen = ({ navigation }) => {
               style={styles.emptyIcon}
             />
             <Text style={styles.emptyText}>
-              Aucun prélèvement aujourd'hui
+              Aucun prélèvement ce jour
             </Text>
           </View>
         )}

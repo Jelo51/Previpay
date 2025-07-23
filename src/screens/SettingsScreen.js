@@ -11,14 +11,12 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useDebits } from '../context/DebitContext';
 
 const SettingsScreen = ({ navigation }) => {
-  const { t, i18n } = useTranslation();
   const { theme, toggleTheme, themePreference, setThemePreference } = useTheme();
   const { user, logout, updateProfile } = useAuth();
   const { 
@@ -28,26 +26,15 @@ const SettingsScreen = ({ navigation }) => {
   } = useNotifications();
   const { updateBalance } = useDebits();
   
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [tempBalance, setTempBalance] = useState('');
-
-  const languages = [
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-  ];
 
   const themes = [
     { value: 'light', label: 'Clair', icon: 'sunny' },
     { value: 'dark', label: 'Sombre', icon: 'moon' },
     { value: 'system', label: 'Système', icon: 'phone-portrait' },
   ];
-
-  const handleLanguageChange = (languageCode) => {
-    i18n.changeLanguage(languageCode);
-    setShowLanguageModal(false);
-  };
 
   const handleThemeChange = (themeValue) => {
     setThemePreference(themeValue);
@@ -379,7 +366,7 @@ const SettingsScreen = ({ navigation }) => {
         </View>
         
         <TouchableOpacity
-          style={styles.settingItem}
+          style={[styles.settingItem, styles.lastSettingItem]}
           onPress={() => setShowThemeModal(true)}
         >
           <Ionicons
@@ -392,25 +379,6 @@ const SettingsScreen = ({ navigation }) => {
             <Text style={styles.settingTitle}>Thème</Text>
             <Text style={styles.settingValue}>
               {themes.find(t => t.value === themePreference)?.label}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.settingItem, styles.lastSettingItem]}
-          onPress={() => setShowLanguageModal(true)}
-        >
-          <Ionicons
-            name="language"
-            size={24}
-            color={theme.colors.primary}
-            style={styles.settingIcon}
-          />
-          <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Langue</Text>
-            <Text style={styles.settingValue}>
-              {languages.find(l => l.code === i18n.language)?.name}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
@@ -443,46 +411,6 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
       </View>
-
-      {/* Modal langue */}
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choisir la langue</Text>
-            {languages.map((language) => (
-              <TouchableOpacity
-                key={language.code}
-                style={[
-                  styles.optionItem,
-                  i18n.language === language.code && styles.optionItemSelected,
-                ]}
-                onPress={() => handleLanguageChange(language.code)}
-              >
-                <Text style={styles.optionIcon}>{language.flag}</Text>
-                <Text style={styles.optionText}>{language.name}</Text>
-                {i18n.language === language.code && (
-                  <Ionicons name="checkmark" size={20} color={theme.colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowLanguageModal(false)}
-              >
-                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                  Annuler
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* Modal thème */}
       <Modal

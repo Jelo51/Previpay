@@ -1,11 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { useTranslation } from 'react-i18next';
 
 const CompanyCard = ({ company, onPress }) => {
   const { colors } = useTheme();
-  const { t } = useTranslation();
 
   return (
     <TouchableOpacity
@@ -16,14 +14,14 @@ const CompanyCard = ({ company, onPress }) => {
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.text }]}>{company.name}</Text>
         <Text style={[styles.category, { color: colors.textSecondary }]}>
-          {t(`category.${company.category}`)}
+          {company.category}
         </Text>
       </View>
     </TouchableOpacity>
   );
 };
 
-const companyStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
