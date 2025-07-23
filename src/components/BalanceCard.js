@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -31,9 +31,6 @@ const BalanceCard = ({ currentBalance, projectedBalance, onUpdateBalance }) => {
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.text,
-    },
-    editButton: {
-      padding: 4,
     },
     balanceRow: {
       flexDirection: 'row',
@@ -83,13 +80,6 @@ const BalanceCard = ({ currentBalance, projectedBalance, onUpdateBalance }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>💰 Mon solde</Text>
-        <TouchableOpacity style={styles.editButton} onPress={onUpdateBalance}>
-          <Ionicons 
-            name="pencil" 
-            size={20} 
-            color={theme.colors.primary} 
-          />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.balanceRow}>

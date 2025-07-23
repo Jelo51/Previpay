@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { debitService } from '../services/debitService';
+import { debitService } from '../services/database';
 import { useAuth } from './AuthContext';
 
 const DebitContext = createContext();
@@ -68,9 +68,15 @@ export const DebitProvider = ({ children }) => {
   const loadDebits = async () => {
     try {
       dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+          console.log('🔍 CONTEXT - Début chargement, user.id:', user.id); // ← NOUVEAU DEBUG
+
       const debits = await debitService.getAllDebits(user.id);
+          console.log('🔍 CONTEXT - Tout en base:', allInDB); // ← NOUVEAU DEBUG
+
       dispatch({ type: ACTIONS.SET_DEBITS, payload: debits });
     } catch (error) {
+          console.log('🔍 CONTEXT - Erreur chargement:', error); // ← NOUVEAU DEBUG
+
       dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
     }
   };
@@ -128,6 +134,54 @@ export const DebitProvider = ({ children }) => {
     }
   };
 
+  // Marquer comme payé
+  const markAsPaid = async (debitId) => {
+    try {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+      
+      // Marquer comme payé et calculer la prochaine date
+      const result = await debitService.markAsPaid(debitId);
+      
+      if (result.success) {
+        // Recharger les données pour avoir les bonnes dates
+        await loadDebits();
+        return { success: true };
+      } else {
+        dispatch({ type: ACTIONS.SET_ERROR, payload: result.error });
+        return result;
+      }
+    } catch (error) {
+      dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+      return { success: false, error: error.message };
+    } finally {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+    }
+  };
+
+  // Mettre en pause/reprendre
+  const togglePause = async (debitId) => {
+    try {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+      
+      const result = await debitService.togglePause(debitId);
+      
+      if (result.success) {
+        // Mettre à jour localement
+        const updatedDebit = await debitService.getDebitById(debitId);
+        dispatch({ type: ACTIONS.UPDATE_DEBIT, payload: updatedDebit });
+        return { success: true, isPaused: result.isPaused };
+      } else {
+        dispatch({ type: ACTIONS.SET_ERROR, payload: result.error });
+        return result;
+      }
+    } catch (error) {
+      dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+      return { success: false, error: error.message };
+    } finally {
+      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+    }
+  };
+
   // Calculer le solde prévisionnel
   const calculateProjectedBalance = (targetDate) => {
     const today = new Date();
@@ -136,8 +190,8 @@ export const DebitProvider = ({ children }) => {
     let projectedBalance = state.balance;
     
     state.debits.forEach(debit => {
-      if (debit.status === 'active') {
-        const debitDate = new Date(debit.nextPaymentDate);
+      if (debit.status === 'active' && !debit.is_paused) {
+        const debitDate = new Date(debit.next_payment_date);
         if (debitDate <= target && debitDate >= today) {
           projectedBalance -= debit.amount;
         }
@@ -150,7 +204,8 @@ export const DebitProvider = ({ children }) => {
   // Obtenir les prélèvements du mois
   const getMonthDebits = (month, year) => {
     return state.debits.filter(debit => {
-      const debitDate = new Date(debit.nextPaymentDate);
+      if (debit.is_paused) return false;
+      const debitDate = new Date(debit.next_payment_date);
       return debitDate.getMonth() === month && debitDate.getFullYear() === year;
     });
   };
@@ -158,6 +213,7 @@ export const DebitProvider = ({ children }) => {
   // Obtenir les prélèvements par catégorie
   const getDebitsByCategory = () => {
     return state.debits.reduce((acc, debit) => {
+      if (debit.is_paused) return acc;
       const category = debit.category || 'Autre';
       if (!acc[category]) {
         acc[category] = [];
@@ -191,6 +247,8 @@ export const DebitProvider = ({ children }) => {
     updateDebit,
     deleteDebit,
     updateBalance,
+    markAsPaid,
+    togglePause,
     calculateProjectedBalance,
     getMonthDebits,
     getDebitsByCategory,

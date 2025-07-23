@@ -48,25 +48,36 @@ const HomeScreen = ({ navigation }) => {
     await refreshDebits();
     setRefreshing(false);
   };
-
+  
   const getUpcomingDebits = () => {
     const today = new Date();
     const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     
-    return debits
-      .filter(debit => {
-        const debitDate = new Date(debit.nextPaymentDate);
-        return debitDate >= today && debitDate <= nextWeek && debit.status === 'active';
-      })
-      .sort((a, b) => new Date(a.nextPaymentDate) - new Date(b.nextPaymentDate))
+    const filtered = debits.filter(debit => {
+      const debitDate = new Date(debit.next_payment_date || debit.nextPaymentDate);
+      const isInRange = debitDate >= today && debitDate <= nextWeek;
+      const isActive = debit.status === 'active' && !debit.is_paused;
+      
+      return isInRange && isActive;
+    });
+    
+    return filtered
+      .sort((a, b) => new Date(a.next_payment_date || a.nextPaymentDate) - new Date(b.next_payment_date || b.nextPaymentDate))
       .slice(0, 5);
   };
 
+  const mapDebitForDisplay = (debit) => ({
+    ...debit,
+    companyName: debit.company_name || debit.companyName,
+    nextPaymentDate: debit.next_payment_date || debit.nextPaymentDate,
+  });
+
   const projectedBalance = calculateProjectedBalance(
-    new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000) // 30 jours
+    new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000) 
   );
 
   const upcomingDebits = getUpcomingDebits();
+  const mappedUpcomingDebits = upcomingDebits.map(mapDebitForDisplay);
 
   const styles = StyleSheet.create({
     container: {
@@ -169,7 +180,7 @@ const HomeScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Bonjour {user?.name || 'Utilisateur'} 👋
+          Bonjour {user?.name || 'Utilisateur'}
         </Text>
         <Text style={styles.subtitle}>
           Voici un aperçu de vos prélèvements
@@ -177,30 +188,10 @@ const HomeScreen = ({ navigation }) => {
       </View>
 
       {/* Balance Card */}
-      <BalanceCard
-        currentBalance={balance}
-        projectedBalance={projectedBalance}
-        onUpdateBalance={() => {
-          Alert.prompt(
-            'Mettre à jour le solde',
-            'Entrez votre nouveau solde',
-            [
-              { text: 'Annuler', style: 'cancel' },
-              {
-                text: 'Sauvegarder',
-                onPress: (value) => {
-                  const newBalance = parseFloat(value);
-                  if (!isNaN(newBalance)) {
-                    // updateBalance(newBalance);
-                  }
-                }
-              }
-            ],
-            'plain-text',
-            balance.toString()
-          );
-        }}
-      />
+<BalanceCard
+  currentBalance={balance}
+  projectedBalance={projectedBalance}
+/>
 
       {/* Quick Stats */}
       {monthlyStats && (
@@ -213,12 +204,12 @@ const HomeScreen = ({ navigation }) => {
       {/* Upcoming Debits */}
       <View style={styles.upcomingContainer}>
         <Text style={styles.sectionTitle}>
-          {t('dashboard.nextDebits')}
+          Prochains prélèvements
         </Text>
 
-        {upcomingDebits.length > 0 ? (
+        {mappedUpcomingDebits.length > 0 ? (
           <>
-            {upcomingDebits.map((debit) => (
+            {mappedUpcomingDebits.map((debit) => (
               <DebitCard
                 key={debit.id}
                 debit={debit}
@@ -227,7 +218,7 @@ const HomeScreen = ({ navigation }) => {
               />
             ))}
             
-            {debits.length > upcomingDebits.length && (
+            {debits.length > mappedUpcomingDebits.length && (
               <TouchableOpacity
                 style={styles.viewAllButton}
                 onPress={() => navigation.navigate('Calendar')}
@@ -252,7 +243,7 @@ const HomeScreen = ({ navigation }) => {
               style={styles.emptyIcon}
             />
             <Text style={styles.emptyTitle}>
-              {debits.length === 0 ? t('dashboard.addFirstDebit') : 'Aucun prélèvement à venir'}
+              {debits.length === 0 ? 'Ajouter votre premier prélèvement' : 'Aucun prélèvement à venir'}
             </Text>
             <Text style={styles.emptySubtitle}>
               {debits.length === 0 
@@ -266,14 +257,17 @@ const HomeScreen = ({ navigation }) => {
             >
               <Ionicons name="add" size={20} color="#FFFFFF" />
               <Text style={styles.addButtonText}>
-                {t('debits.addDebit')}
+                Ajouter un prélèvement
               </Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
+      
     </ScrollView>
+    
   );
+  
 };
 
 export default HomeScreen;

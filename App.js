@@ -3,7 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { I18nextProvider } from 'react-i18next';
 import i18n from './src/services/i18n';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -26,32 +28,63 @@ import StatisticsScreen from './src/screens/StatisticsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+// Composant wrapper avec SafeArea
+function ScreenWrapper({ children, theme }) {
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {children}
+    </SafeAreaView>
+  );
+}
+
 // Stack Navigator pour l'écran principal
 function HomeStack() {
+  const { theme } = useTheme();
+  
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false,
+        headerShown: false, // Désactiver les headers pour éviter l'erreur
       }}
     >
       <Stack.Screen 
         name="Dashboard" 
-        component={HomeScreen} 
-      />
+        options={{ title: 'PréviPay' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <HomeScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
       <Stack.Screen 
-        name="DebitDetails" 
-        component={DebitDetailsScreen}
-      />
+        name="DebitDetails"
+        options={{ title: 'Détails du prélèvement' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <DebitDetailsScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
       <Stack.Screen 
-        name="Statistics" 
-        component={StatisticsScreen}
-      />
+        name="Statistics"
+        options={{ title: 'Statistiques' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <StatisticsScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
 
 // Stack Navigator pour le calendrier
 function CalendarStack() {
+  const { theme } = useTheme();
+  
   return (
     <Stack.Navigator
       screenOptions={{
@@ -59,19 +92,33 @@ function CalendarStack() {
       }}
     >
       <Stack.Screen 
-        name="CalendarView" 
-        component={CalendarScreen} 
-      />
+        name="CalendarView"
+        options={{ title: 'Calendrier' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <CalendarScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
       <Stack.Screen 
-        name="DebitDetails" 
-        component={DebitDetailsScreen}
-      />
+        name="DebitDetails"
+        options={{ title: 'Détails du prélèvement' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <DebitDetailsScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
 
 // Stack Navigator pour l'ajout
 function AddStack() {
+  const { theme } = useTheme();
+  
   return (
     <Stack.Navigator
       screenOptions={{
@@ -79,13 +126,49 @@ function AddStack() {
       }}
     >
       <Stack.Screen 
-        name="AddDebit" 
-        component={AddDebitScreen} 
-      />
+        name="AddDebit"
+        options={{ title: 'Ajouter un prélèvement' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <AddDebitScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
       <Stack.Screen 
-        name="Catalog" 
-        component={CatalogScreen}
-      />
+        name="Catalog"
+        options={{ title: 'Catalogue d\'entreprises' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <CatalogScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
+    </Stack.Navigator>
+  );
+}
+
+// Stack Navigator pour les paramètres
+function SettingsStack() {
+  const { theme } = useTheme();
+  
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen 
+        name="SettingsMain"
+        options={{ title: 'Paramètres' }}
+      >
+        {(props) => (
+          <ScreenWrapper theme={theme}>
+            <SettingsScreen {...props} />
+          </ScreenWrapper>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -122,9 +205,13 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: theme.colors.background,
           borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+          paddingBottom: 5,
+          height: 85,
         },
         tabBarLabelStyle: {
-          fontWeight: 'normal', // Valeur statique au lieu de theme.fonts.medium
+          fontWeight: 'normal',
+          fontSize: 12,
         },
         headerShown: false,
       })}
@@ -146,7 +233,7 @@ function MainTabs() {
       />
       <Tab.Screen 
         name="Settings" 
-        component={SettingsScreen} 
+        component={SettingsStack} 
         options={{ title: 'Paramètres' }}
       />
     </Tab.Navigator>
@@ -167,8 +254,15 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-      {user ? <MainTabs /> : <AuthScreen />}
+      <StatusBar 
+        style={theme.isDark ? 'light' : 'dark'} 
+        backgroundColor={theme.colors.background}
+      />
+      {user ? <MainTabs /> : (
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
+          <AuthScreen />
+        </SafeAreaView>
+      )}
     </NavigationContainer>
   );
 }
