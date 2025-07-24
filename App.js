@@ -6,8 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { I18nextProvider } from 'react-i18next';
-import i18n from './src/services/i18n';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { NotificationProvider } from './src/context/NotificationContext';
@@ -44,7 +42,7 @@ function HomeStack() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false, // Désactiver les headers pour éviter l'erreur
+        headerShown: false,
       }}
     >
       <Stack.Screen 
@@ -270,15 +268,13 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider>
-      <I18nextProvider i18n={i18n}>
-        <AuthProvider>
-          <NotificationProvider>
-            <DebitProvider>
-              <AppContent />
-            </DebitProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </I18nextProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <DebitProvider>
+            <AppContent />
+          </DebitProvider>
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

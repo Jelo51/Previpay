@@ -67,8 +67,8 @@ const CatalogScreen = ({ navigation }) => {
 
     // Trier par popularité puis par nom
     filtered.sort((a, b) => {
-      if (a.isPopular && !b.isPopular) return -1;
-      if (!a.isPopular && b.isPopular) return 1;
+      if (a.is_popular && !b.is_popular) return -1;
+      if (!a.is_popular && b.is_popular) return 1;
       return a.name.localeCompare(b.name);
     });
 
@@ -92,7 +92,7 @@ const CatalogScreen = ({ navigation }) => {
               const customCompany = {
                 name: companyName.trim(),
                 category: 'Autre',
-                isPopular: false,
+                is_popular: false,
               };
               selectCompany(customCompany);
             }
@@ -235,6 +235,7 @@ const CatalogScreen = ({ navigation }) => {
       borderRadius: 8,
       flexDirection: 'row',
       alignItems: 'center',
+      marginTop: 16,
     },
     addCustomButtonText: {
       color: '#FFFFFF',
@@ -283,70 +284,79 @@ const CatalogScreen = ({ navigation }) => {
         </View>
 
         {/* Filtres par catégorie */}
-        
-<ScrollView
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  style={styles.categoryScrollContainer}
->
-  <View style={styles.categoryContainer}>
-    {[...new Set(categories)].map((category) => (
-      <TouchableOpacity
-        key={category}
-        style={[
-          styles.categoryButton,
-          selectedCategory === category && styles.categoryButtonActive,
-        ]}
-        onPress={() => setSelectedCategory(category)}
-      >
-        <Text
-          style={[
-            styles.categoryButtonText,
-            selectedCategory === category && styles.categoryButtonTextActive,
-          ]}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScrollContainer}
         >
-          {getCategoryDisplayName(category)}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-</ScrollView>
+          <View style={styles.categoryContainer}>
+            {[...new Set(categories)].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category && styles.categoryButtonActive,
+                ]}
+                onPress={() => setSelectedCategory(category)}
+              >
+                <Text
+                  style={[
+                    styles.categoryButtonText,
+                    selectedCategory === category && styles.categoryButtonTextActive,
+                  ]}
+                >
+                  {getCategoryDisplayName(category)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
       {/* Liste des entreprises */}
       <ScrollView style={styles.content} contentContainerStyle={styles.companiesList}>
         {filteredCompanies.length > 0 ? (
-          filteredCompanies.map((company) => (
-            <TouchableOpacity
-              key={`${company.id}-${company.name}`}
-              style={styles.companyItem}
-              onPress={() => selectCompany(company)}
-            >
-              <View style={styles.companyIcon}>
-                <Ionicons
-                  name={catalogService.getCategoryIcon(company.category)}
-                  size={24}
-                  color={catalogService.getCategoryColor(company.category)}
-                />
-              </View>
-              <View style={styles.companyInfo}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.companyName}>{company.name}</Text>
-                  {company.isPopular && (
-                    <View style={styles.popularBadge}>
-                      <Text style={styles.popularBadgeText}>POPULAIRE</Text>
-                    </View>
-                  )}
+          <>
+            {filteredCompanies.map((company) => (
+              <TouchableOpacity
+                key={`${company.id || company.name}-${company.name}`}
+                style={styles.companyItem}
+                onPress={() => selectCompany(company)}
+              >
+                <View style={styles.companyIcon}>
+                  <Ionicons
+                    name={catalogService.getCategoryIcon(company.category)}
+                    size={24}
+                    color={catalogService.getCategoryColor(company.category)}
+                  />
                 </View>
-                <Text style={styles.companyCategory}>{company.category}</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
+                <View style={styles.companyInfo}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.companyName}>{company.name}</Text>
+                    {company.is_popular && (
+                      <View style={styles.popularBadge}>
+                        <Text style={styles.popularBadgeText}>POPULAIRE</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.companyCategory}>{company.category}</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              </TouchableOpacity>
+            ))}
+            
+            {/* Bouton d'ajout manuel en bas */}
+            <TouchableOpacity style={styles.addCustomButton} onPress={addCustomCompany}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Text style={styles.addCustomButtonText}>
+                Ajouter une entreprise manuelle
+              </Text>
             </TouchableOpacity>
-          ))
+          </>
         ) : (
           <View style={styles.emptyState}>
             <Ionicons
@@ -368,16 +378,6 @@ const CatalogScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* Bouton d'ajout manuel en bas */}
-        {filteredCompanies.length > 0 && (
-          <TouchableOpacity style={styles.addCustomButton} onPress={addCustomCompany}>
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.addCustomButtonText}>
-              Ajouter une entreprise manuelle
-            </Text>
-          </TouchableOpacity>
         )}
       </ScrollView>
     </View>

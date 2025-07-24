@@ -34,13 +34,13 @@ const AuthScreen = () => {
         result = await register(email, password, name);
       }
       
-      console.log('📊 Résultat connexion:', result);
+      console.log(' Résultat connexion:', result);
       
       if (!result.success) {
         Alert.alert('Erreur', result.error || 'Échec de connexion');
       }
     } catch (error) {
-      console.error('❌ Erreur:', error);
+      console.error(' Erreur:', error);
       Alert.alert('Erreur', 'Une erreur est survenue');
     }
   };
