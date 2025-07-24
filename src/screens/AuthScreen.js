@@ -11,12 +11,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
 const AuthScreen = () => {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const { login, register, loading } = useAuth();
   
@@ -226,12 +224,12 @@ const AuthScreen = () => {
         {/* Formulaire */}
         <View style={styles.formContainer}>
           <Text style={styles.title}>
-            {isLogin ? t('auth.login') : t('auth.register')}
+            {isLogin ? 'Connexion' : 'Inscription'}
           </Text>
 
           {!isLogin && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('auth.name')}</Text>
+              <Text style={styles.label}>Nom</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
@@ -246,7 +244,7 @@ const AuthScreen = () => {
           )}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.email')}</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -262,7 +260,7 @@ const AuthScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.password')}</Text>
+            <Text style={styles.label}>Mot de passe</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -289,7 +287,7 @@ const AuthScreen = () => {
 
           {!isLogin && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
+              <Text style={styles.label}>Confirmer le mot de passe</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
@@ -317,8 +315,8 @@ const AuthScreen = () => {
               {loading 
                 ? 'Chargement...' 
                 : isLogin 
-                  ? t('auth.loginButton') 
-                  : t('auth.registerButton')
+                  ? 'Se connecter' 
+                  : 'S\'inscrire'
               }
             </Text>
           </TouchableOpacity>
@@ -327,11 +325,11 @@ const AuthScreen = () => {
         {/* Changer de mode */}
         <View style={styles.switchContainer}>
           <Text style={styles.switchText}>
-            {isLogin ? t('auth.noAccount') : t('auth.alreadyHaveAccount')}
+            {isLogin ? 'Pas de compte ?' : 'Déjà un compte ?'}
           </Text>
           <TouchableOpacity style={styles.switchButton} onPress={toggleMode}>
             <Text style={styles.switchButtonText}>
-              {isLogin ? t('auth.registerButton') : t('auth.loginButton')}
+              {isLogin ? 'S\'inscrire' : 'Se connecter'}
             </Text>
           </TouchableOpacity>
         </View>

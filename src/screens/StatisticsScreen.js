@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useDebits } from '../context/DebitContext';
 import { catalogService } from '../services/catalogService';
@@ -17,7 +16,6 @@ import { catalogService } from '../services/catalogService';
 const { width: screenWidth } = Dimensions.get('window');
 
 const StatisticsScreen = () => {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const { debits, getMonthlyStats } = useDebits();
   
@@ -65,23 +63,53 @@ const StatisticsScreen = () => {
     setStats(statsData);
   };
 
+  // Fonction pour obtenir les couleurs par catégorie
+  const getCategoryColor = (category) => {
+    const colors = {
+      'Mobile': '#007AFF',
+      'Internet': '#5856D6',
+      'Streaming': '#FF3B30',
+      'Transport': '#FF9500',
+      'Assurance': '#34C759',
+      'Banque': '#FF2D92',
+      'Énergie': '#FFCC00',
+      'Autre': '#8E8E93',
+      'Utilities': '#32D74B',
+      'Entertainment': '#FF453A',
+      'Food': '#FF9F0A',
+      'Shopping': '#BF5AF2',
+      'Health': '#30D158',
+      'Education': '#64D2FF',
+    };
+    
+    return colors[category] || '#8E8E93';
+  };
+
+  // Fonction corrigée pour le graphique en camembert avec SEULEMENT les pourcentages
   const getPieChartData = () => {
     if (!stats?.categories || Object.keys(stats.categories).length === 0) {
       return [];
     }
 
-    const colors = [
-      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-      '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-    ];
-
-    return Object.entries(stats.categories).map(([category, amount], index) => ({
-      name: category,
-      amount: amount,
-      color: catalogService.getCategoryColor(category) || colors[index % colors.length],
-      legendFontColor: theme.colors.text,
-      legendFontSize: 12,
-    }));
+    const total = stats.totalAmount;
+    
+    return Object.entries(stats.categories)
+      .filter(([_, amount]) => amount > 0)
+      .map(([category, amount]) => {
+        const percentage = ((amount / total) * 100).toFixed(1);
+        
+        return {
+          name: category, // Nom de catégorie pour la légende
+          population: parseFloat(percentage), // IMPORTANT: Utiliser "population" avec le pourcentage
+          amount: amount, // Garder le montant pour la légende
+          percentage: parseFloat(percentage),
+          categoryName: category,
+          color: getCategoryColor(category),
+          legendFontColor: theme.colors.text,
+          legendFontSize: 12,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount); // Trier par montant décroissant
   };
 
   const getBarChartData = () => {
@@ -110,7 +138,7 @@ const StatisticsScreen = () => {
     backgroundColor: theme.colors.surface,
     backgroundGradientFrom: theme.colors.surface,
     backgroundGradientTo: theme.colors.surface,
-    decimalPlaces: 0,
+    decimalPlaces: 1, // Afficher 1 décimale pour les pourcentages
     color: (opacity = 1) => `rgba(${theme.isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(${theme.isDark ? '255, 255, 255' : '0, 0, 0'}, ${opacity})`,
     style: {
@@ -258,6 +286,17 @@ const StatisticsScreen = () => {
       color: theme.colors.textSecondary,
       marginLeft: 8,
     },
+    // Styles pour l'info bulle sur le graphique
+    chartLegend: {
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    chartLegendText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      fontStyle: 'italic',
+    },
   });
 
   return (
@@ -290,7 +329,7 @@ const StatisticsScreen = () => {
       <ScrollView style={styles.content}>
         {/* Résumé */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Résumé</Text>
+          <Text style={styles.sectionTitle}> Résumé</Text>
           
           {stats ? (
             <View style={styles.summaryContainer}>
@@ -333,57 +372,61 @@ const StatisticsScreen = () => {
           )}
         </View>
 
-        {/* Graphique en camembert */}
+        {/* Graphique en camembert avec SEULEMENT les pourcentages */}
         {pieChartData.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🥧 Répartition par catégorie</Text>
+            <Text style={styles.sectionTitle}> Répartition par catégorie</Text>
             <View style={styles.chartContainer}>
               <PieChart
                 data={pieChartData}
                 width={screenWidth - 64}
                 height={220}
                 chartConfig={chartConfig}
-                accessor="amount"
+                accessor="population" // IMPORTANT: Utiliser "population" pour afficher SEULEMENT les pourcentages
                 backgroundColor="transparent"
                 paddingLeft="15"
                 center={[10, 50]}
-                absolute
+                absolute // Affiche maintenant SEULEMENT "100.0%" au lieu de "682 100.0%"
               />
+              
+              {/* Info bulle explicative */}
+              <View style={styles.chartLegend}>
+                <Text style={styles.chartLegendText}>
+                  Les pourcentages indiquent la part de chaque catégorie
+                </Text>
+              </View>
             </View>
             
-            {/* Liste des catégories */}
+            {/* Liste des catégories avec pourcentages et montants */}
             <View style={styles.categoryList}>
-              {Object.entries(stats.categories)
-                .sort(([,a], [,b]) => b - a)
-                .map(([category, amount], index, array) => {
-                  const percentage = ((amount / stats.totalAmount) * 100).toFixed(1);
-                  const isLast = index === array.length - 1;
-                  
-                  return (
-                    <View 
-                      key={category} 
-                      style={[styles.categoryItem, isLast && styles.lastCategoryItem]}
-                    >
-                      <View style={styles.categoryInfo}>
-                        <View 
-                          style={[
-                            styles.categoryColor, 
-                            { backgroundColor: catalogService.getCategoryColor(category) }
-                          ]} 
-                        />
-                        <Text style={styles.categoryName}>{category}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.categoryAmount}>
-                          {amount.toFixed(2)}€
-                        </Text>
-                        <Text style={styles.categoryPercentage}>
-                          ({percentage}%)
-                        </Text>
-                      </View>
+              {pieChartData.map((item, index) => {
+                const isLast = index === pieChartData.length - 1;
+                
+                return (
+                  <View 
+                    key={item.categoryName} 
+                    style={[styles.categoryItem, isLast && styles.lastCategoryItem]}
+                  >
+                    <View style={styles.categoryInfo}>
+                      <View 
+                        style={[
+                          styles.categoryColor, 
+                          { backgroundColor: item.color }
+                        ]} 
+                      />
+                      <Text style={styles.categoryName}>{item.categoryName}</Text>
                     </View>
-                  );
-                })}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.categoryAmount}>
+                        {item.amount.toFixed(2)}€
+                      </Text>
+                      <Text style={styles.categoryPercentage}>
+                        ({item.percentage}%)
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}

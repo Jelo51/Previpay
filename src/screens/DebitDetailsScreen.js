@@ -8,27 +8,43 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useDebits } from '../context/DebitContext';
 import { catalogService } from '../services/catalogService';
 
 const DebitDetailsScreen = ({ route, navigation }) => {
   const { debit } = route.params;
-  const { t } = useTranslation();
   const { theme } = useTheme();
-  const { updateDebit, deleteDebit } = useDebits();
+  const { updateDebit, deleteDebit, markAsPaid, togglePause } = useDebits();
   
   const [loading, setLoading] = useState(false);
 
+  // ✅ CORRECTION: Sécurisation des données
+  const safeDebit = {
+    id: debit?.id || 'unknown',
+    companyName: debit?.companyName || debit?.company_name || 'Entreprise inconnue',
+    amount: typeof debit?.amount === 'number' ? debit.amount : 0,
+    category: debit?.category || 'Autre',
+    nextPaymentDate: debit?.nextPaymentDate || debit?.next_payment_date || new Date().toISOString(),
+    frequency: debit?.frequency || 'monthly',
+    description: debit?.description || '',
+    status: debit?.status || 'active',
+    is_paused: Boolean(debit?.is_paused)
+  };
+
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Erreur formatage date:', error);
+      return 'Date invalide';
+    }
   };
 
   const getFrequencyLabel = (frequency) => {
@@ -44,7 +60,8 @@ const DebitDetailsScreen = ({ route, navigation }) => {
     return frequencies[frequency] || frequency;
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, isPaused) => {
+    if (isPaused) return theme.colors.warning;
     switch (status) {
       case 'active': return theme.colors.success;
       case 'paused': return theme.colors.warning;
@@ -53,7 +70,8 @@ const DebitDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (status, isPaused) => {
+    if (isPaused) return 'En pause';
     const statuses = {
       active: 'Actif',
       paused: 'En pause',
@@ -63,6 +81,14 @@ const DebitDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleMarkAsPaid = async () => {
+    if (safeDebit.is_paused) {
+      Alert.alert(
+        'Prélèvement en pause',
+        'Impossible de marquer comme payé un prélèvement en pause. Veuillez d\'abord le réactiver.'
+      );
+      return;
+    }
+
     Alert.alert(
       'Marquer comme payé',
       'Voulez-vous marquer ce prélèvement comme payé et programmer le suivant ?',
@@ -73,52 +99,22 @@ const DebitDetailsScreen = ({ route, navigation }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              // Calculer la prochaine date selon la fréquence
-              const currentDate = new Date(debit.nextPaymentDate);
-              let nextDate = new Date(currentDate);
+              console.log('🔍 DETAILS - Tentative markAsPaid pour:', safeDebit.id);
               
-              switch (debit.frequency) {
-                case 'monthly':
-                  nextDate.setMonth(nextDate.getMonth() + 1);
-                  break;
-                case 'quarterly':
-                  nextDate.setMonth(nextDate.getMonth() + 3);
-                  break;
-                case 'biannual':
-                  nextDate.setMonth(nextDate.getMonth() + 6);
-                  break;
-                case 'annual':
-                  nextDate.setFullYear(nextDate.getFullYear() + 1);
-                  break;
-                case 'weekly':
-                  nextDate.setDate(nextDate.getDate() + 7);
-                  break;
-                case 'biweekly':
-                  nextDate.setDate(nextDate.getDate() + 14);
-                  break;
-                default:
-                  // Pour 'once', on marque comme terminé
-                  nextDate = null;
-                  break;
-              }
-
-              const updates = nextDate 
-                ? { 
-                    nextPaymentDate: nextDate.toISOString().split('T')[0],
-                    status: 'active'
-                  }
-                : { status: 'completed' };
-
-              const result = await updateDebit(debit.id, updates);
+              const result = await markAsPaid(safeDebit.id);
+              console.log('🔍 DETAILS - Résultat markAsPaid:', result);
               
               if (result.success) {
-                Alert.alert('Succès', 'Prélèvement marqué comme payé', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
+                Alert.alert(
+                  'Succès', 
+                  'Prélèvement marqué comme payé et prochaine date calculée',
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
               } else {
-                Alert.alert('Erreur', result.error);
+                Alert.alert('Erreur', result.error || 'Erreur lors du marquage');
               }
             } catch (error) {
+              console.error(' DETAILS - Erreur markAsPaid:', error);
               Alert.alert('Erreur', 'Une erreur inattendue s\'est produite');
             } finally {
               setLoading(false);
@@ -130,8 +126,8 @@ const DebitDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleTogglePause = async () => {
-    const newStatus = debit.status === 'paused' ? 'active' : 'paused';
-    const action = newStatus === 'paused' ? 'mettre en pause' : 'réactiver';
+    const newState = !safeDebit.is_paused;
+    const action = newState ? 'mettre en pause' : 'réactiver';
     
     Alert.alert(
       `${action.charAt(0).toUpperCase() + action.slice(1)} le prélèvement`,
@@ -142,15 +138,27 @@ const DebitDetailsScreen = ({ route, navigation }) => {
           text: 'Confirmer',
           onPress: async () => {
             setLoading(true);
-            const result = await updateDebit(debit.id, { status: newStatus });
-            setLoading(false);
-            
-            if (result.success) {
-              Alert.alert('Succès', `Prélèvement ${newStatus === 'paused' ? 'mis en pause' : 'réactivé'}`, [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
-            } else {
-              Alert.alert('Erreur', result.error);
+            try {
+              console.log(' DETAILS - Tentative togglePause pour:', safeDebit.id, 'État actuel:', safeDebit.is_paused);
+              
+              const result = await togglePause(safeDebit.id);
+              console.log(' DETAILS - Résultat togglePause:', result);
+              
+              if (result.success) {
+                const actionText = result.isPaused ? 'mis en pause' : 'réactivé';
+                Alert.alert(
+                  'Succès', 
+                  `Prélèvement ${actionText}`,
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+              } else {
+                Alert.alert('Erreur', result.error || 'Erreur lors de la modification');
+              }
+            } catch (error) {
+              console.error('🔍 DETAILS - Erreur togglePause:', error);
+              Alert.alert('Erreur', 'Une erreur inattendue s\'est produite');
+            } finally {
+              setLoading(false);
             }
           }
         }
@@ -169,15 +177,24 @@ const DebitDetailsScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
-            const result = await deleteDebit(debit.id);
-            setLoading(false);
-            
-            if (result.success) {
-              Alert.alert('Succès', 'Prélèvement supprimé', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
-            } else {
-              Alert.alert('Erreur', result.error);
+            try {
+              console.log('🔍 DETAILS - Suppression pour:', safeDebit.id);
+              
+              const result = await deleteDebit(safeDebit.id);
+              console.log('🔍 DETAILS - Résultat suppression:', result);
+              
+              if (result.success) {
+                Alert.alert('Succès', 'Prélèvement supprimé', [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
+              } else {
+                Alert.alert('Erreur', result.error);
+              }
+            } catch (error) {
+              console.error('🔍 DETAILS - Erreur suppression:', error);
+              Alert.alert('Erreur', 'Une erreur inattendue s\'est produite');
+            } finally {
+              setLoading(false);
             }
           }
         }
@@ -196,39 +213,41 @@ const DebitDetailsScreen = ({ route, navigation }) => {
       alignItems: 'center',
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.border,
+      opacity: safeDebit.is_paused ? 0.8 : 1,
     },
     categoryIcon: {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: `${catalogService.getCategoryColor(debit.category)}20`,
+      backgroundColor: `${catalogService.getCategoryColor(safeDebit.category)}20`,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 16,
+      opacity: safeDebit.is_paused ? 0.6 : 1,
     },
     companyName: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: theme.colors.text,
+      color: safeDebit.is_paused ? theme.colors.textSecondary : theme.colors.text,
       textAlign: 'center',
       marginBottom: 8,
     },
     amount: {
       fontSize: 32,
       fontWeight: 'bold',
-      color: theme.colors.primary,
+      color: safeDebit.is_paused ? theme.colors.textSecondary : theme.colors.primary,
       marginBottom: 8,
     },
     statusBadge: {
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 16,
-      backgroundColor: `${getStatusColor(debit.status)}20`,
+      backgroundColor: `${getStatusColor(safeDebit.status, safeDebit.is_paused)}20`,
     },
     statusText: {
       fontSize: 14,
       fontWeight: '600',
-      color: getStatusColor(debit.status),
+      color: getStatusColor(safeDebit.status, safeDebit.is_paused),
     },
     content: {
       flex: 1,
@@ -291,6 +310,9 @@ const DebitDetailsScreen = ({ route, navigation }) => {
     secondaryAction: {
       backgroundColor: theme.colors.warning,
     },
+    resumeAction: {
+      backgroundColor: theme.colors.success,
+    },
     dangerAction: {
       backgroundColor: theme.colors.error,
     },
@@ -310,6 +332,21 @@ const DebitDetailsScreen = ({ route, navigation }) => {
     },
     disabledButton: {
       backgroundColor: theme.colors.textSecondary,
+      opacity: 0.5,
+    },
+    warningContainer: {
+      backgroundColor: `${theme.colors.warning}20`,
+      padding: 12,
+      margin: 16,
+      borderRadius: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.warning,
+    },
+    warningText: {
+      color: theme.colors.warning,
+      fontSize: 14,
+      fontWeight: '500',
+      textAlign: 'center',
     },
   });
 
@@ -319,21 +356,30 @@ const DebitDetailsScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <View style={styles.categoryIcon}>
           <Ionicons
-            name={catalogService.getCategoryIcon(debit.category)}
+            name={catalogService.getCategoryIcon(safeDebit.category)}
             size={40}
-            color={catalogService.getCategoryColor(debit.category)}
+            color={catalogService.getCategoryColor(safeDebit.category)}
           />
         </View>
-        <Text style={styles.companyName}>{debit.companyName}</Text>
-        <Text style={styles.amount}>{debit.amount.toFixed(2)}€</Text>
+        <Text style={styles.companyName}>{safeDebit.companyName}</Text>
+        <Text style={styles.amount}>{safeDebit.amount.toFixed(2)}€</Text>
         <View style={styles.statusBadge}>
           <Text style={styles.statusText}>
-            {getStatusLabel(debit.status)}
+            {getStatusLabel(safeDebit.status, safeDebit.is_paused)}
           </Text>
         </View>
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Alerte si en pause */}
+        {safeDebit.is_paused && (
+          <View style={styles.warningContainer}>
+            <Text style={styles.warningText}>
+               Ce prélèvement est en pause. Il n'apparaîtra pas dans les calculs de solde.
+            </Text>
+          </View>
+        )}
+
         {/* Détails du prélèvement */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📋 Détails</Text>
@@ -348,7 +394,7 @@ const DebitDetailsScreen = ({ route, navigation }) => {
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Prochaine date</Text>
               <Text style={styles.detailValue}>
-                {formatDate(debit.nextPaymentDate)}
+                {safeDebit.is_paused ? 'En pause' : formatDate(safeDebit.nextPaymentDate)}
               </Text>
             </View>
           </View>
@@ -363,7 +409,7 @@ const DebitDetailsScreen = ({ route, navigation }) => {
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Fréquence</Text>
               <Text style={styles.detailValue}>
-                {getFrequencyLabel(debit.frequency)}
+                {getFrequencyLabel(safeDebit.frequency)}
               </Text>
             </View>
           </View>
@@ -377,11 +423,11 @@ const DebitDetailsScreen = ({ route, navigation }) => {
             />
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Catégorie</Text>
-              <Text style={styles.detailValue}>{debit.category}</Text>
+              <Text style={styles.detailValue}>{safeDebit.category}</Text>
             </View>
           </View>
 
-          {debit.description && (
+          {safeDebit.description && safeDebit.description.length > 0 && (
             <View style={[styles.detailRow, styles.lastDetailRow]}>
               <Ionicons
                 name="document-text"
@@ -391,7 +437,7 @@ const DebitDetailsScreen = ({ route, navigation }) => {
               />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Description</Text>
-                <Text style={styles.detailValue}>{debit.description}</Text>
+                <Text style={styles.detailValue}>{safeDebit.description}</Text>
               </View>
             </View>
           )}
@@ -399,42 +445,43 @@ const DebitDetailsScreen = ({ route, navigation }) => {
 
         {/* Actions */}
         <View style={styles.actionsSection}>
-          {debit.status === 'active' && (
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                styles.primaryAction,
-                loading && styles.disabledButton
-              ]}
-              onPress={handleMarkAsPaid}
-              disabled={loading}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-              <Text style={[styles.actionButtonText, styles.primaryActionText]}>
-                Marquer comme payé
-              </Text>
-            </TouchableOpacity>
-          )}
-
+          {/* Bouton Marquer comme payé */}
           <TouchableOpacity
             style={[
               styles.actionButton,
-              styles.secondaryAction,
+              styles.primaryAction,
+              (safeDebit.is_paused || loading) && styles.disabledButton
+            ]}
+            onPress={handleMarkAsPaid}
+            disabled={safeDebit.is_paused || loading}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+            <Text style={[styles.actionButtonText, styles.primaryActionText]}>
+              {loading ? 'Traitement...' : 'Marquer comme payé'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Bouton Pause/Reprendre */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              safeDebit.is_paused ? styles.resumeAction : styles.secondaryAction,
               loading && styles.disabledButton
             ]}
             onPress={handleTogglePause}
             disabled={loading}
           >
             <Ionicons 
-              name={debit.status === 'paused' ? 'play' : 'pause'} 
+              name={safeDebit.is_paused ? "play-circle" : "pause-circle"} 
               size={20} 
               color="#FFFFFF" 
             />
-            <Text style={[styles.actionButtonText, styles.secondaryActionText]}>
-              {debit.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}
+            <Text style={[styles.actionButtonText, styles.primaryActionText]}>
+              {loading ? 'Traitement...' : (safeDebit.is_paused ? 'Réactiver' : 'Mettre en pause')}
             </Text>
           </TouchableOpacity>
 
+          {/* Bouton Supprimer */}
           <TouchableOpacity
             style={[
               styles.actionButton,

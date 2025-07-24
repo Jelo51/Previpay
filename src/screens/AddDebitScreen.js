@@ -12,14 +12,12 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import { useDebits } from '../context/DebitContext';
 import { useNotifications } from '../context/NotificationContext';
 import { catalogService } from '../services/catalogService';
 
 const AddDebitScreen = ({ navigation, route }) => {
-  const { t } = useTranslation();
   const { theme } = useTheme();
   const { addDebit } = useDebits();
   const { scheduleDebitNotification } = useNotifications();
@@ -73,13 +71,13 @@ const AddDebitScreen = ({ navigation, route }) => {
   };
 
   const frequencies = [
-    { value: 'once', label: t('debits.frequencies.once') },
-    { value: 'weekly', label: t('debits.frequencies.weekly') },
-    { value: 'biweekly', label: t('debits.frequencies.biweekly') },
-    { value: 'monthly', label: t('debits.frequencies.monthly') },
-    { value: 'quarterly', label: t('debits.frequencies.quarterly') },
-    { value: 'biannual', label: t('debits.frequencies.biannual') },
-    { value: 'annual', label: t('debits.frequencies.annual') },
+    { value: 'once', label: 'Ponctuel' },
+    { value: 'weekly', label: 'Hebdomadaire' },
+    { value: 'biweekly', label: 'Bi-hebdomadaire' },
+    { value: 'monthly', label: 'Mensuel' },
+    { value: 'quarterly', label: 'Trimestriel' },
+    { value: 'biannual', label: 'Semestriel' },
+    { value: 'annual', label: 'Annuel' },
   ];
 
   const handleInputChange = (field, value) => {
@@ -140,14 +138,6 @@ const AddDebitScreen = ({ navigation, route }) => {
     setTempYear(today.getFullYear());
   };
 
-  const addDaysToDate = (days) => {
-    const currentDate = new Date(tempYear, tempMonth - 1, tempDay, 12, 0, 0); // Midi
-    currentDate.setDate(currentDate.getDate() + days);
-    setTempDay(currentDate.getDate());
-    setTempMonth(currentDate.getMonth() + 1);
-    setTempYear(currentDate.getFullYear());
-  };
-
   const validateForm = () => {
     if (!formData.companyName.trim()) {
       Alert.alert('Erreur', 'Le nom de l\'entreprise est requis');
@@ -163,48 +153,43 @@ const AddDebitScreen = ({ navigation, route }) => {
     return true;
   };
 
-const handleSubmit = async () => {
-  if (!validateForm()) return;
-  
-  setLoading(true);
-  
-  try {
-    const debitData = {
-      ...formData,
-      amount: parseFloat(formData.amount),
-      nextPaymentDate: formatDateForStorage(formData.nextPaymentDate),
-    };
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
     
-    console.log('🔍 Données envoyées:', debitData); // DEBUG
+    setLoading(true);
     
-    const result = await addDebit(debitData);
-    
-    console.log('🔍 Résultat ajout:', result); // DEBUG
-    
-    if (result.success) {
-      // Programmer la notification
-      await scheduleDebitNotification(result.debit);
+    try {
+      const debitData = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        nextPaymentDate: formatDateForStorage(formData.nextPaymentDate),
+      };
       
-      Alert.alert(
-        'Succès',
-        'Prélèvement ajouté avec succès',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    } else {
-      Alert.alert('Erreur', result.error || 'Erreur lors de l\'ajout');
+      const result = await addDebit(debitData);
+      
+      if (result.success) {
+        // Programmer la notification
+        await scheduleDebitNotification(result.debit);
+        
+        Alert.alert(
+          'Succès',
+          'Prélèvement ajouté avec succès',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erreur', result.error || 'Erreur lors de l\'ajout');
+      }
+    } catch (error) {
+      Alert.alert('Erreur', 'Une erreur inattendue s\'est produite');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.log('🔍 Erreur:', error); // DEBUG
-    Alert.alert('Erreur', 'Une erreur inattendue s\'est produite');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const openCatalog = () => {
     navigation.navigate('Catalog');
@@ -371,7 +356,7 @@ const handleSubmit = async () => {
           <Text style={styles.sectionTitle}>Informations de base</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('debits.companyName')} *</Text>
+            <Text style={styles.label}>Nom de l'entreprise *</Text>
             <TextInput
               style={styles.input}
               value={formData.companyName}
@@ -388,7 +373,7 @@ const handleSubmit = async () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('common.amount')} (€) *</Text>
+            <Text style={styles.label}>Montant (€) *</Text>
             <TextInput
               style={styles.input}
               value={formData.amount}
@@ -400,13 +385,13 @@ const handleSubmit = async () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('common.category')}</Text>
+            <Text style={styles.label}>Catégorie</Text>
             <TouchableOpacity
               style={styles.pickerButton}
               onPress={() => setShowCategoryPicker(true)}
             >
               <Text style={styles.pickerButtonText}>
-                {t(`categories.${formData.category}`) || formData.category}
+                {formData.category}
               </Text>
               <Ionicons name="chevron-down" size={20} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -418,7 +403,7 @@ const handleSubmit = async () => {
           <Text style={styles.sectionTitle}>Récurrence</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('debits.frequency')}</Text>
+            <Text style={styles.label}>Fréquence</Text>
             <TouchableOpacity
               style={styles.pickerButton}
               onPress={() => setShowFrequencyPicker(true)}
@@ -431,7 +416,7 @@ const handleSubmit = async () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('debits.nextPaymentDate')}</Text>
+            <Text style={styles.label}>Prochaine date de prélèvement</Text>
             <TouchableOpacity
               style={styles.pickerButton}
               onPress={handleDateModalOpen}
@@ -449,7 +434,7 @@ const handleSubmit = async () => {
           <Text style={styles.sectionTitle}>Détails optionnels</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('common.description')}</Text>
+            <Text style={styles.label}>Description</Text>
             <TextInput
               style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
               value={formData.description}
@@ -473,11 +458,11 @@ const handleSubmit = async () => {
         disabled={loading}
       >
         <Text style={styles.submitButtonText}>
-          {loading ? 'Ajout en cours...' : t('debits.addDebit')}
+          {loading ? 'Ajout en cours...' : 'Ajouter un prélèvement'}
         </Text>
       </TouchableOpacity>
 
-      {/* Modal de sélection de date - Version corrigée */}
+      {/* Modal de sélection de date */}
       <Modal
         visible={showDateModal}
         transparent
@@ -778,7 +763,7 @@ const handleSubmit = async () => {
                   }}
                 >
                   <Text style={styles.optionText}>
-                    {t(`categories.${category}`) || category}
+                    {category}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -789,7 +774,7 @@ const handleSubmit = async () => {
                 onPress={() => setShowCategoryPicker(false)}
               >
                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                  {t('common.cancel')}
+                  Annuler
                 </Text>
               </TouchableOpacity>
             </View>
@@ -827,15 +812,15 @@ const handleSubmit = async () => {
                 onPress={() => setShowFrequencyPicker(false)}
               >
                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                 {t('common.cancel')}
-               </Text>
-             </TouchableOpacity>
-           </View>
-         </View>
-       </View>
-     </Modal>
-   </View>
- );
+                  Annuler
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
 };
 
-export default AddDebitScreen;
+export default AddDebitScreen;  

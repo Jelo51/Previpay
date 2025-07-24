@@ -289,51 +289,103 @@ export const debitService = {
     }
   },
 
-  // Marquer un prélèvement comme payé
+  //  CORRECTION: Fonction markAsPaid corrigée
   async markAsPaid(debitId) {
     try {
-      await db.runAsync(
-        'UPDATE debits SET is_paid = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [debitId]
-      );
-
-      // Ajouter à l'historique des paiements
-      const debit = await db.getFirstAsync('SELECT * FROM debits WHERE id = ?', [debitId]);
-      if (debit) {
-        await db.runAsync(
-          'INSERT INTO payment_history (debit_id, amount, payment_date) VALUES (?, ?, ?)',
-          [debitId, debit.amount, new Date().toISOString().split('T')[0]]
-        );
-
-        // Calculer la prochaine date de paiement
-        const nextDate = calculateNextPaymentDate(debit.next_payment_date, debit.frequency);
-        await db.runAsync(
-          'UPDATE debits SET next_payment_date = ?, is_paid = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [nextDate, debitId]
-        );
+      console.log(' SERVICE - markAsPaid pour ID:', debitId);
+      
+      // Vérifier que l'ID existe
+      if (!debitId) {
+        throw new Error('ID de prélèvement manquant');
       }
-
-      return { success: true };
+      
+      // Récupérer le prélèvement actuel
+      const currentDebit = await this.getDebitById(debitId);
+      if (!currentDebit) {
+        throw new Error('Prélèvement non trouvé');
+      }
+      
+      console.log(' SERVICE - Prélèvement trouvé:', currentDebit);
+      
+      // Vérifier qu'il n'est pas en pause
+      if (currentDebit.is_paused) {
+        throw new Error('Impossible de marquer comme payé un prélèvement en pause');
+      }
+      
+      // Calculer la prochaine date selon la fréquence
+      const nextDate = this.calculateNextPaymentDate(
+        new Date(currentDebit.next_payment_date), 
+        currentDebit.frequency
+      );
+      
+      console.log(' SERVICE - Prochaine date calculée:', nextDate);
+      
+      // Ajouter à l'historique des paiements
+      await db.runAsync(
+        'INSERT INTO payment_history (debit_id, amount, payment_date, status) VALUES (?, ?, ?, ?)',
+        [debitId, currentDebit.amount, new Date().toISOString().split('T')[0], 'completed']
+      );
+      
+      // Mettre à jour le prélèvement avec la nouvelle date
+      const result = await db.runAsync(
+        `UPDATE debits 
+         SET next_payment_date = ?, 
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [nextDate.toISOString().split('T')[0], debitId]
+      );
+      
+      console.log('🔍 SERVICE - Résultat update:', result);
+      
+      if (result.changes > 0) {
+        return { success: true };
+      } else {
+        throw new Error('Aucune ligne mise à jour');
+      }
+      
     } catch (error) {
-      console.error('Erreur lors du marquage comme payé:', error);
+      console.error('🔍 SERVICE - Erreur markAsPaid:', error);
       return { success: false, error: error.message };
     }
   },
 
-  // Mettre en pause/reprendre un prélèvement
+  //  CORRECTION: Fonction togglePause corrigée
   async togglePause(debitId) {
     try {
-      const debit = await db.getFirstAsync('SELECT is_paused FROM debits WHERE id = ?', [debitId]);
-      const newPauseState = debit.is_paused ? 0 : 1;
+      console.log('🔍 SERVICE - togglePause pour ID:', debitId);
       
-      await db.runAsync(
-        'UPDATE debits SET is_paused = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [newPauseState, debitId]
+      if (!debitId) {
+        throw new Error('ID de prélèvement manquant');
+      }
+      
+      // Récupérer l'état actuel
+      const currentDebit = await this.getDebitById(debitId);
+      if (!currentDebit) {
+        throw new Error('Prélèvement non trouvé');
+      }
+      
+      const newPauseState = !currentDebit.is_paused;
+      console.log('🔍 SERVICE - État actuel:', currentDebit.is_paused, '→ Nouveau:', newPauseState);
+      
+      // Mettre à jour en base
+      const result = await db.runAsync(
+        `UPDATE debits 
+         SET is_paused = ?, 
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [newPauseState ? 1 : 0, debitId]
       );
-
-      return { success: true, isPaused: newPauseState === 1 };
+      
+      console.log('🔍 SERVICE - Résultat toggle:', result);
+      
+      if (result.changes > 0) {
+        return { success: true, isPaused: newPauseState };
+      } else {
+        throw new Error('Aucune ligne mise à jour');
+      }
+      
     } catch (error) {
-      console.error('Erreur lors de la mise en pause:', error);
+      console.error('🔍 SERVICE - Erreur togglePause:', error);
       return { success: false, error: error.message };
     }
   },
@@ -348,17 +400,7 @@ export const debitService = {
       throw error;
     }
   },
-// Ajoutez cette fonction dans debitService
-async debugGetAllDebits() {
-  try {
-    const allDebits = await db.getAllAsync('SELECT * FROM debits ORDER BY id DESC');
-    console.log('🔍 DEBUG - Tous les prélèvements en base:', allDebits);
-    return allDebits;
-  } catch (error) {
-    console.error('Erreur debug:', error);
-    return [];
-  }
-},
+
   // Obtenir un prélèvement par ID
   async getDebitById(debitId) {
     try {
@@ -368,38 +410,68 @@ async debugGetAllDebits() {
       console.error('Erreur lors de la récupération du prélèvement:', error);
       return null;
     }
-  }
-};
+  },
 
-// Fonction helper pour calculer la prochaine date de paiement
-const calculateNextPaymentDate = (currentDate, frequency) => {
-  const date = new Date(currentDate);
-  
-  switch (frequency) {
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    case 'biweekly':
-      date.setDate(date.getDate() + 14);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case 'quarterly':
-      date.setMonth(date.getMonth() + 3);
-      break;
-    case 'biannual':
-      date.setMonth(date.getMonth() + 6);
-      break;
-    case 'annual':
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-    default:
-      // 'once' - ne pas changer la date
-      break;
-  }
-  
-  return date.toISOString().split('T')[0];
+  //  CORRECTION: Fonction helper pour calculer la prochaine date
+  calculateNextPaymentDate(currentDate, frequency) {
+    const date = new Date(currentDate);
+    
+    switch (frequency) {
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'biweekly':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'monthly':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'quarterly':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case 'biannual':
+        date.setMonth(date.getMonth() + 6);
+        break;
+      case 'annual':
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      case 'once':
+        // Pour les prélèvements ponctuels, marquer comme terminé
+        return currentDate; // Garder la même date mais changer le statut
+      default:
+        console.warn('Fréquence inconnue:', frequency);
+        break;
+    }
+    
+    return date;
+  },
+
+  //  NOUVEAU: Fonction pour vider tous les prélèvements (pour debug)
+  async clearAllDebits(userId) {
+    try {
+      console.log(' SERVICE - Suppression de tous les prélèvements pour user:', userId);
+      
+      const result = await db.runAsync('DELETE FROM debits WHERE user_id = ?', [userId]);
+      console.log(' SERVICE - Prélèvements supprimés:', result.changes);
+      
+      return { success: true, deletedCount: result.changes };
+    } catch (error) {
+      console.error(' SERVICE - Erreur clearAllDebits:', error);
+      throw error;
+    }
+  },
+
+  // Fonction de debug pour voir tout
+  async debugGetAllDebits() {
+    try {
+      const allDebits = await db.getAllAsync('SELECT * FROM debits ORDER BY id DESC');
+      console.log('🔍 DEBUG - Tous les prélèvements en base:', allDebits);
+      return allDebits;
+    } catch (error) {
+      console.error('Erreur debug:', error);
+      return [];
+    }
+  },
 };
 
 // Fonctions utilitaires
